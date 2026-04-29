@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>LOLLab</title>
+
 <style>
 body { font-family: Arial; margin:0; background:#fff7cc; }
-.header { background:#ffcc00; padding:15px; font-weight:bold; }
+.header { background:#ffcc00; padding:15px; display:flex; justify-content:space-between; }
 .container { padding:20px; }
 .card {
   background:white;
@@ -22,7 +23,7 @@ button {
   border-radius:6px;
   cursor:pointer;
 }
-input, select {
+input, textarea, select {
   width:100%;
   padding:10px;
   margin:5px 0;
@@ -41,7 +42,11 @@ input, select {
 
 <body>
 
-<div class="header">LOLAPP</div>
+<div class="header">
+  <span>LOLLab</span>
+  <button onclick="logout()">Salir</button>
+</div>
+
 <div class="container" id="app"></div>
 
 <div class="nav" id="nav" style="display:none;">
@@ -52,15 +57,21 @@ input, select {
 
 <script>
 
+// ---- ESTADO ----
 let user = null;
 let screen = "login";
+let selectedJob = null;
 
 let jobs = [];
 let applications = [];
 
-// ---- NAV ----
-function go(s){
-  screen = s;
+// ---- NAVEGACIÓN ----
+function go(s){ screen = s; render(); }
+
+function logout(){
+  user = null;
+  screen = "login";
+  document.getElementById("nav").style.display = "none";
   render();
 }
 
@@ -73,114 +84,230 @@ function login(){
   render();
 }
 
+// ---- GUARDAR EMPRESA ----
+function saveEmpresa(){
+  user.empresa = {
+    nombre: document.getElementById("empresaNombre").value,
+    industria: document.getElementById("empresaIndustria").value,
+    ubicacion: document.getElementById("empresaUbicacion").value,
+    contacto: document.getElementById("empresaContacto").value
+  };
+  alert("Perfil empresa guardado");
+}
+
+// ---- GUARDAR RECRUITER ----
+function saveRecruiter(){
+  user.recruiter = {
+    nombre: document.getElementById("recruiterNombre").value,
+    empresaReal: document.getElementById("empresaReal").value
+  };
+  alert("Perfil reclutador guardado");
+}
+
 // ---- CREAR EMPLEO ----
 function createJob(){
-  const puesto = document.getElementById("puesto").value;
-  const sueldo = document.getElementById("sueldo").value;
 
-  jobs.push({
-    puesto,
-    sueldo,
-    empresa: "Empresa real",
-    estado: "Activo",
-    created: Date.now()
-  });
+  if(user.rol === "empresa" && !user.empresa){
+    alert("Completa tu perfil de empresa primero");
+    return;
+  }
 
+  if(user.rol === "recruiter" && !user.recruiter){
+    alert("Completa tu perfil de reclutador primero");
+    return;
+  }
+
+  const job = {
+    puesto: document.getElementById("puesto").value,
+    sueldo: document.getElementById("sueldo").value,
+    contrato: document.getElementById("contrato").value,
+    jornada: document.getElementById("jornada").value,
+    modalidad: document.getElementById("modalidad").value,
+    descripcion: document.getElementById("descripcion").value,
+    requisitos: document.getElementById("requisitos").value,
+    ofrece: document.getElementById("ofrece").value,
+    educacion: document.getElementById("educacion").value,
+    experiencia: document.getElementById("experiencia").value,
+    responsabilidad: document.getElementById("responsabilidad").value,
+    empresa: user.rol === "empresa" ? user.empresa.nombre : user.recruiter.empresaReal,
+    tipoPublicador: user.rol
+  };
+
+  jobs.push(job);
+  render();
+}
+
+// ---- VER DETALLE ----
+function viewJob(i){
+  selectedJob = jobs[i];
+  screen = "jobDetail";
   render();
 }
 
 // ---- POSTULAR ----
-function apply(i){
+function apply(){
   applications.push({
-    ...jobs[i],
+    ...selectedJob,
     estado: "Applied"
   });
-  render();
-}
-
-// ---- AUTO EXPIRACION (15 días simulado) ----
-function cleanJobs(){
-  const now = Date.now();
-  jobs = jobs.filter(j => (now - j.created) < 1296000000); // 15 días
+  alert("Postulación enviada");
 }
 
 // ---- RENDER ----
 function render(){
 
-  cleanJobs();
+let html = "";
 
-  let html = "";
+// LOGIN
+if(!user){
+  html = `
+    <h2>Bienvenido a LOLLab</h2>
+    <select id="rol">
+      <option value="candidato">Candidato</option>
+      <option value="empresa">Empresa</option>
+      <option value="recruiter">Recruiter</option>
+    </select>
+    <button onclick="login()">Ingresar</button>
+  `;
+}
 
-  // LOGIN
-  if(!user){
-    html = `
-      <h2>Bienvenido a LOLAPP</h2>
-      <select id="rol">
-        <option value="candidato">Candidato</option>
-        <option value="empresa">Empresa</option>
-        <option value="recruiter">Recruiter</option>
+// HOME
+else if(screen === "home"){
+  html = `<h2>Inicio (${user.rol})</h2>`;
+
+  if(user.rol !== "candidato"){
+    html += `
+    <div class="card">
+      <h3>Crear empleo</h3>
+
+      <input id="puesto" placeholder="Puesto">
+      <input id="sueldo" placeholder="Remuneración">
+
+      <select id="contrato">
+        <option>Efectivo</option>
+        <option>Temporal</option>
+        <option>Pasantía</option>
       </select>
-      <button onclick="login()">Ingresar</button>
+
+      <select id="jornada">
+        <option>Full-time</option>
+        <option>Part-time</option>
+      </select>
+
+      <select id="modalidad">
+        <option>Presencial</option>
+        <option>Remoto</option>
+        <option>Híbrido</option>
+      </select>
+
+      <textarea id="descripcion" placeholder="Descripción"></textarea>
+      <textarea id="requisitos" placeholder="Requisitos"></textarea>
+      <textarea id="ofrece" placeholder="Qué ofrece"></textarea>
+
+      <select id="educacion">
+        <option>Secundario</option>
+        <option>Terciario</option>
+        <option>Universitario</option>
+      </select>
+
+      <select id="experiencia">
+        <option>Sin experiencia</option>
+        <option>1 año</option>
+        <option>2+ años</option>
+      </select>
+
+      <select id="responsabilidad">
+        <option>Bajo</option>
+        <option>Medio</option>
+        <option>Alto</option>
+      </select>
+
+      <button onclick="createJob()">Publicar</button>
+    </div>
+    `;
+  }
+}
+
+// JOBS
+else if(screen === "jobs"){
+  html = "<h2>Ofertas laborales</h2>";
+
+  if(jobs.length === 0){
+    html += "<p>No hay ofertas aún</p>";
+  }
+
+  jobs.forEach((j,i)=>{
+    html += `
+      <div class="card" onclick="viewJob(${i})">
+        <b>${j.puesto}</b>
+        <p>${j.empresa}</p>
+        <p>${j.sueldo}</p>
+      </div>
+    `;
+  });
+}
+
+// DETALLE
+else if(screen === "jobDetail"){
+  html = `
+    <button onclick="go('jobs')">← Volver</button>
+    <div class="card">
+      <h2>${selectedJob.puesto}</h2>
+      <p>${selectedJob.empresa}</p>
+      <p>${selectedJob.sueldo}</p>
+
+      <p><b>Contrato:</b> ${selectedJob.contrato}</p>
+      <p><b>Jornada:</b> ${selectedJob.jornada}</p>
+      <p><b>Modalidad:</b> ${selectedJob.modalidad}</p>
+
+      <p><b>Descripción:</b> ${selectedJob.descripcion}</p>
+      <p><b>Requisitos:</b> ${selectedJob.requisitos}</p>
+      <p><b>Ofrece:</b> ${selectedJob.ofrece}</p>
+
+      <p><b>Educación:</b> ${selectedJob.educacion}</p>
+      <p><b>Experiencia:</b> ${selectedJob.experiencia}</p>
+      <p><b>Responsabilidad:</b> ${selectedJob.responsabilidad}</p>
+  `;
+
+  if(user.rol === "candidato"){
+    html += `<button onclick="apply()">Postularme</button>`;
+  }
+
+  html += "</div>";
+}
+
+// PERFIL
+else if(screen === "profile"){
+
+  if(user.rol === "empresa"){
+    html = `
+      <h2>Perfil Empresa</h2>
+      <input id="empresaNombre" placeholder="Nombre empresa">
+      <input id="empresaIndustria" placeholder="Industria">
+      <input id="empresaUbicacion" placeholder="Ubicación">
+      <input id="empresaContacto" placeholder="Contacto">
+      <button onclick="saveEmpresa()">Guardar</button>
     `;
   }
 
-  // HOME
-  else if(screen === "home"){
-    html = `<h2>Inicio (${user.rol})</h2>`;
-
-    if(user.rol === "empresa" || user.rol === "recruiter"){
-      html += `
-        <div class="card">
-          <h3>Crear empleo</h3>
-          <input id="puesto" placeholder="Puesto (OBLIGATORIO)">
-          <input id="sueldo" placeholder="Remuneración (OBLIGATORIO)">
-          <button onclick="createJob()">Publicar</button>
-        </div>
-      `;
-    }
+  if(user.rol === "recruiter"){
+    html = `
+      <h2>Perfil Reclutador</h2>
+      <input id="recruiterNombre" placeholder="Tu nombre">
+      <input id="empresaReal" placeholder="Empresa REAL">
+      <button onclick="saveRecruiter()">Guardar</button>
+    `;
   }
 
-  // JOBS
-  else if(screen === "jobs"){
-    html = "<h2>Ofertas laborales</h2>";
-
-    jobs.forEach((j,i)=>{
-      html += `
-        <div class="card">
-          <b>${j.puesto}</b>
-          <p>${j.empresa}</p>
-          <p>${j.sueldo}</p>
-          <p>Estado: ${j.estado}</p>
-      `;
-
-      if(user.rol === "candidato"){
-        html += `<button onclick="apply(${i})">Postularme</button>`;
-      }
-
-      html += `</div>`;
+  if(user.rol === "candidato"){
+    html = "<h2>Perfil candidato</h2>";
+    applications.forEach(a=>{
+      html += `<p>${a.puesto} - ${a.estado}</p>`;
     });
   }
+}
 
-  // PROFILE
-  else if(screen === "profile"){
-    html = "<h2>Mi perfil</h2>";
-
-    if(user.rol === "candidato"){
-      html += "<h3>Mis postulaciones</h3>";
-      applications.forEach(a=>{
-        html += `<p>${a.puesto} - ${a.estado}</p>`;
-      });
-    }
-
-    if(user.rol === "empresa" || user.rol === "recruiter"){
-      html += "<h3>Mis empleos</h3>";
-      jobs.forEach(j=>{
-        html += `<p>${j.puesto} - ${j.sueldo}</p>`;
-      });
-    }
-  }
-
-  document.getElementById("app").innerHTML = html;
+document.getElementById("app").innerHTML = html;
 }
 
 render();
