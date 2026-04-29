@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LOLLab</title>
+</head>
+<body style="font-family:sans-serif;padding:20px">
+
+<h1>LOLLab</h1>
+<p>Elegí tu rol:</p>
+
+<button onclick="setRol('candidato')">Candidato</button>
+<button onclick="setRol('empresa')">Empresa</button>
+
+<div id="app"></div>
+
+<script>
+let rol = null;
+let jobs = [
+  {puesto:"Cajero", sueldo:"$450.000", empresa:"Supermercado Norte"}
+];
+let applications = [];
+
+function setRol(r){
+  rol = r;
+  render();
+}
+
+function postular(i){
+  applications.push({...jobs[i], estado:"Postulado"});
+  render();
+}
+
+function crear(){
+  const puesto = document.getElementById("puesto").value;
+  const sueldo = document.getElementById("sueldo").value;
+
+  jobs.push({puesto, sueldo, empresa:"Mi Empresa"});
+  render();
+}
+
+function render(){
+  let html = "";
+
+  if(rol === "candidato"){
+    html += "<h2>Empleos</h2>";
+    jobs.forEach((j,i)=>{
+      html += `<div>
+        <p>${j.puesto} - ${j.sueldo}</p>
+        <button onclick="postular(${i})">Postularme</button>
+      </div>`;
+    });
+
+    html += "<h2>Mis postulaciones</h2>";
+    applications.forEach(a=>{
+      html += `<p>${a.puesto} - ${a.estado}</p>`;
+    });
+  }
+
+  if(rol === "empresa"){
+    html += `
+      <h2>Crear empleo</h2>
+      <input id="puesto" placeholder="Puesto"><br>
+      <input id="sueldo" placeholder="Sueldo"><br>
+      <button onclick="crear()">Crear</button>
+    `;
+
+    html += "<h2>Empleos</h2>";
+    jobs.forEach(j=>{
+      html += `<p>${j.puesto} - ${j.sueldo}</p>`;
+    });
+  }
+
+  document.getElementById("app").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
