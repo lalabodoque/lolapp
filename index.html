@@ -2,312 +2,293 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>LOLLab</title>
+<title>LOLAPP</title>
 
 <style>
 body { font-family: Arial; margin:0; background:#fff7cc; }
 .header { background:#ffcc00; padding:15px; display:flex; justify-content:space-between; }
-.container { padding:20px; }
-.card {
-  background:white;
-  padding:15px;
-  margin:10px 0;
-  border-radius:10px;
-  box-shadow:0 2px 5px rgba(0,0,0,0.1);
-}
-button {
-  background:#ffcc00;
-  border:none;
-  padding:10px;
-  margin-top:10px;
-  border-radius:6px;
-  cursor:pointer;
-}
-input, textarea, select {
-  width:100%;
-  padding:10px;
-  margin:5px 0;
-}
-.nav {
-  position:fixed;
-  bottom:0;
-  width:100%;
-  background:#ffcc00;
-  display:flex;
-  justify-content:space-around;
-  padding:10px;
-}
+.container { padding:20px; margin-bottom:70px; }
+.card { background:white; padding:15px; margin:10px 0; border-radius:10px; }
+button { background:#ffcc00; border:none; padding:10px; margin-top:10px; border-radius:6px; width:100%; }
+input, textarea, select { width:100%; padding:10px; margin:5px 0; }
+.nav { position:fixed; bottom:0; width:100%; background:#ffcc00; display:flex; justify-content:space-around; padding:10px; }
 </style>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+</script>
 </head>
 
 <body>
 
 <div class="header">
-  <span>LOLLab</span>
+  <span>LOLAPP</span>
   <button onclick="logout()">Salir</button>
 </div>
 
 <div class="container" id="app"></div>
 
 <div class="nav" id="nav" style="display:none;">
-  <button onclick="go('home')">Home</button>
-  <button onclick="go('jobs')">Jobs</button>
+  <button onclick="go('home')">Inicio</button>
+  <button onclick="go('jobs')">Empleos</button>
   <button onclick="go('profile')">Perfil</button>
 </div>
 
 <script>
 
-// ---- ESTADO ----
 let user = null;
 let screen = "login";
-let selectedJob = null;
-
 let jobs = [];
 let applications = [];
+let selectedJob = null;
 
-// ---- NAVEGACIÓN ----
-function go(s){ screen = s; render(); }
+// LOGIN
+async function login(){
+  const email = emailInput.value;
+  const pass = passwordInput.value;
+  const rol = rolSelect.value;
+
+  try{
+    const res = await auth.signInWithEmailAndPassword(email, pass);
+    user = { id: res.user.uid, email, rol };
+  }catch{
+    const res = await auth.createUserWithEmailAndPassword(email, pass);
+    user = { id: res.user.uid, email, rol };
+    await db.collection("users").doc(user.id).set(user);
+  }
+
+  nav.style.display="flex";
+  screen="home";
+  render();
+}
 
 function logout(){
-  user = null;
-  screen = "login";
-  document.getElementById("nav").style.display = "none";
+  auth.signOut();
+  user=null;
+  nav.style.display="none";
+  screen="login";
   render();
 }
 
-// ---- LOGIN ----
-function login(){
-  const rol = document.getElementById("rol").value;
-  user = { rol };
-  document.getElementById("nav").style.display = "flex";
-  screen = "home";
-  render();
-}
+// NAV
+function go(s){ screen=s; render(); }
 
-// ---- GUARDAR EMPRESA ----
-function saveEmpresa(){
-  user.empresa = {
-    nombre: document.getElementById("empresaNombre").value,
-    industria: document.getElementById("empresaIndustria").value,
-    ubicacion: document.getElementById("empresaUbicacion").value,
-    contacto: document.getElementById("empresaContacto").value
-  };
-  alert("Perfil empresa guardado");
-}
-
-// ---- GUARDAR RECRUITER ----
-function saveRecruiter(){
-  user.recruiter = {
-    nombre: document.getElementById("recruiterNombre").value,
-    empresaReal: document.getElementById("empresaReal").value
-  };
-  alert("Perfil reclutador guardado");
-}
-
-// ---- CREAR EMPLEO ----
-function createJob(){
-
-  if(user.rol === "empresa" && !user.empresa){
-    alert("Completa tu perfil de empresa primero");
-    return;
-  }
-
-  if(user.rol === "recruiter" && !user.recruiter){
-    alert("Completa tu perfil de reclutador primero");
-    return;
-  }
-
+// CREAR JOB
+async function createJob(){
   const job = {
-    puesto: document.getElementById("puesto").value,
-    sueldo: document.getElementById("sueldo").value,
-    contrato: document.getElementById("contrato").value,
-    jornada: document.getElementById("jornada").value,
-    modalidad: document.getElementById("modalidad").value,
-    descripcion: document.getElementById("descripcion").value,
-    requisitos: document.getElementById("requisitos").value,
-    ofrece: document.getElementById("ofrece").value,
-    educacion: document.getElementById("educacion").value,
-    experiencia: document.getElementById("experiencia").value,
-    responsabilidad: document.getElementById("responsabilidad").value,
-    empresa: user.rol === "empresa" ? user.empresa.nombre : user.recruiter.empresaReal,
-    tipoPublicador: user.rol
+    puesto: puesto.value,
+    sueldo: sueldo.value,
+    empresa: empresa.value,
+    created: Date.now(),
+    lastUpdate: Date.now(),
+    userId: user.id,
+    estado:"Activo"
   };
-
-  jobs.push(job);
-  render();
+  await db.collection("jobs").add(job);
+  alert("Publicado");
 }
 
-// ---- VER DETALLE ----
-function viewJob(i){
-  selectedJob = jobs[i];
-  screen = "jobDetail";
-  render();
+// CARGAR JOBS
+async function loadJobs(){
+  const snap = await db.collection("jobs").get();
+  jobs=[];
+  snap.forEach(d=>jobs.push({id:d.id,...d.data()}));
 }
 
-// ---- POSTULAR ----
-function apply(){
-  applications.push({
-    ...selectedJob,
-    estado: "Applied"
+// POSTULAR
+async function apply(){
+  await db.collection("applications").add({
+    jobId:selectedJob.id,
+    userId:user.id,
+    estado:"Postulado",
+    chat:false,
+    created:Date.now()
   });
-  alert("Postulación enviada");
+  alert("Postulado");
 }
 
-// ---- RENDER ----
-function render(){
+// CHAT
+async function sendMsg(appId){
+  const txt = msg.value;
+  const appDoc = await db.collection("applications").doc(appId).get();
 
-let html = "";
+  if(!appDoc.data().chat){
+    alert("Chat no habilitado aún");
+    return;
+  }
+
+  await db.collection("chats").add({
+    appId,
+    text:txt,
+    from:user.id,
+    created:Date.now()
+  });
+
+  msg.value="";
+}
+
+// PERFIL
+async function saveProfile(){
+
+  const cvFile = cv.files[0];
+  const fotoFile = foto.files[0];
+
+  let cvURL="", fotoURL="";
+
+  if(cvFile){
+    const ref = storage.ref("cv/"+user.id);
+    await ref.put(cvFile);
+    cvURL = await ref.getDownloadURL();
+  }
+
+  if(fotoFile){
+    const ref = storage.ref("foto/"+user.id);
+    await ref.put(fotoFile);
+    fotoURL = await ref.getDownloadURL();
+  }
+
+  await db.collection("users").doc(user.id).update({
+    nombre:nombre.value,
+    bio:bio.value,
+    idiomas:idiomas.value,
+    skills:skills.value,
+    movilidad:movilidad.value,
+    exp:[
+      exp1.value,exp2.value,exp3.value,exp4.value
+    ],
+    cv:cvURL,
+    foto:fotoURL
+  });
+
+  alert("Perfil guardado");
+}
+
+// RENDER
+async function render(){
+
+await loadJobs();
+
+let html="";
 
 // LOGIN
 if(!user){
-  html = `
-    <h2>Bienvenido a LOLLab</h2>
-    <select id="rol">
-      <option value="candidato">Candidato</option>
-      <option value="empresa">Empresa</option>
-      <option value="recruiter">Recruiter</option>
-    </select>
-    <button onclick="login()">Ingresar</button>
+  html=`
+  <h2>Login</h2>
+  <input id="emailInput" placeholder="Email">
+  <input id="passwordInput" type="password" placeholder="Contraseña">
+  <select id="rolSelect">
+    <option value="candidato">Candidato</option>
+    <option value="empresa">Empresa</option>
+    <option value="recruiter">Recruiter</option>
+  </select>
+  <button onclick="login()">Entrar</button>
   `;
 }
 
 // HOME
-else if(screen === "home"){
-  html = `<h2>Inicio (${user.rol})</h2>`;
+else if(screen==="home"){
+  html=`<h2>Inicio (${user.rol})</h2>`;
 
-  if(user.rol !== "candidato"){
-    html += `
+  if(user.rol!=="candidato"){
+    html+=`
     <div class="card">
-      <h3>Crear empleo</h3>
-
-      <input id="puesto" placeholder="Puesto">
-      <input id="sueldo" placeholder="Remuneración">
-
-      <select id="contrato">
-        <option>Efectivo</option>
-        <option>Temporal</option>
-        <option>Pasantía</option>
-      </select>
-
-      <select id="jornada">
-        <option>Full-time</option>
-        <option>Part-time</option>
-      </select>
-
-      <select id="modalidad">
-        <option>Presencial</option>
-        <option>Remoto</option>
-        <option>Híbrido</option>
-      </select>
-
-      <textarea id="descripcion" placeholder="Descripción"></textarea>
-      <textarea id="requisitos" placeholder="Requisitos"></textarea>
-      <textarea id="ofrece" placeholder="Qué ofrece"></textarea>
-
-      <select id="educacion">
-        <option>Secundario</option>
-        <option>Terciario</option>
-        <option>Universitario</option>
-      </select>
-
-      <select id="experiencia">
-        <option>Sin experiencia</option>
-        <option>1 año</option>
-        <option>2+ años</option>
-      </select>
-
-      <select id="responsabilidad">
-        <option>Bajo</option>
-        <option>Medio</option>
-        <option>Alto</option>
-      </select>
-
-      <button onclick="createJob()">Publicar</button>
-    </div>
-    `;
+    <input id="puesto" placeholder="Puesto">
+    <input id="sueldo" placeholder="Sueldo">
+    <input id="empresa" placeholder="Empresa REAL">
+    <button onclick="createJob()">Publicar</button>
+    </div>`;
   }
 }
 
 // JOBS
-else if(screen === "jobs"){
-  html = "<h2>Ofertas laborales</h2>";
-
-  if(jobs.length === 0){
-    html += "<p>No hay ofertas aún</p>";
-  }
-
+else if(screen==="jobs"){
+  html="<h2>Ofertas</h2>";
   jobs.forEach((j,i)=>{
-    html += `
-      <div class="card" onclick="viewJob(${i})">
-        <b>${j.puesto}</b>
-        <p>${j.empresa}</p>
-        <p>${j.sueldo}</p>
-      </div>
-    `;
+    html+=`
+    <div class="card" onclick="selectedJob=jobs[${i}];go('detail')">
+    <b>${j.puesto}</b>
+    <p>${j.empresa}</p>
+    <p>${j.sueldo}</p>
+    </div>`;
   });
 }
 
 // DETALLE
-else if(screen === "jobDetail"){
-  html = `
-    <button onclick="go('jobs')">← Volver</button>
-    <div class="card">
-      <h2>${selectedJob.puesto}</h2>
-      <p>${selectedJob.empresa}</p>
-      <p>${selectedJob.sueldo}</p>
+else if(screen==="detail"){
+  html=`
+  <button onclick="go('jobs')">← Volver</button>
+  <div class="card">
+  <h2>${selectedJob.puesto}</h2>
+  <p>${selectedJob.empresa}</p>
+  <p>${selectedJob.sueldo}</p>
 
-      <p><b>Contrato:</b> ${selectedJob.contrato}</p>
-      <p><b>Jornada:</b> ${selectedJob.jornada}</p>
-      <p><b>Modalidad:</b> ${selectedJob.modalidad}</p>
-
-      <p><b>Descripción:</b> ${selectedJob.descripcion}</p>
-      <p><b>Requisitos:</b> ${selectedJob.requisitos}</p>
-      <p><b>Ofrece:</b> ${selectedJob.ofrece}</p>
-
-      <p><b>Educación:</b> ${selectedJob.educacion}</p>
-      <p><b>Experiencia:</b> ${selectedJob.experiencia}</p>
-      <p><b>Responsabilidad:</b> ${selectedJob.responsabilidad}</p>
+  <p style="color:red;">
+  Expira en 15 días / Sin respuesta en 96h
+  </p>
   `;
 
-  if(user.rol === "candidato"){
-    html += `<button onclick="apply()">Postularme</button>`;
+  if(user.rol==="candidato"){
+    html+=`<button onclick="apply()">Postularme</button>`;
   }
 
-  html += "</div>";
+  html+="</div>";
 }
 
 // PERFIL
-else if(screen === "profile"){
+else if(screen==="profile"){
 
-  if(user.rol === "empresa"){
-    html = `
-      <h2>Perfil Empresa</h2>
-      <input id="empresaNombre" placeholder="Nombre empresa">
-      <input id="empresaIndustria" placeholder="Industria">
-      <input id="empresaUbicacion" placeholder="Ubicación">
-      <input id="empresaContacto" placeholder="Contacto">
-      <button onclick="saveEmpresa()">Guardar</button>
+  if(user.rol==="candidato"){
+    html=`
+    <h2>Perfil</h2>
+    <input id="nombre" placeholder="Nombre">
+    <textarea id="bio"></textarea>
+
+    <textarea id="exp1"></textarea>
+    <textarea id="exp2"></textarea>
+    <textarea id="exp3"></textarea>
+    <textarea id="exp4"></textarea>
+
+    <input id="idiomas">
+    <input id="skills">
+
+    <select id="movilidad">
+      <option>Si</option>
+      <option>No</option>
+    </select>
+
+    <input type="file" id="foto">
+    <input type="file" id="cv">
+
+    <button onclick="saveProfile()">Guardar</button>
     `;
   }
 
-  if(user.rol === "recruiter"){
-    html = `
-      <h2>Perfil Reclutador</h2>
-      <input id="recruiterNombre" placeholder="Tu nombre">
-      <input id="empresaReal" placeholder="Empresa REAL">
-      <button onclick="saveRecruiter()">Guardar</button>
-    `;
+  if(user.rol==="empresa"){
+    html="<h2>Panel Empresa</h2>";
   }
 
-  if(user.rol === "candidato"){
-    html = "<h2>Perfil candidato</h2>";
-    applications.forEach(a=>{
-      html += `<p>${a.puesto} - ${a.estado}</p>`;
-    });
+  if(user.rol==="recruiter"){
+    html="<h2>Panel Recruiter</h2>";
   }
 }
 
-document.getElementById("app").innerHTML = html;
+app.innerHTML=html;
 }
 
 render();
